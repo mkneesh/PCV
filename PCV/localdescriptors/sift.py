@@ -21,8 +21,8 @@ def process_image(imagename,resultname,params="--edge-thresh 10 --peak-thresh 5"
 
 def read_features_from_file(filename):
     """ Read feature properties and return in matrix form. """
-    
     f = loadtxt(filename)
+    print 'filename:%s f.shape:%s' % (filename, f.shape)
     return f[:,:4],f[:,4:] # feature locations, descriptors
 
 

@@ -1,6 +1,6 @@
 from numpy import *
 from scipy.cluster.vq import *
-import sift
+import PCV.localdescriptors.sift as sift
 
 
 class Vocabulary(object):
