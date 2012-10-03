@@ -79,6 +79,13 @@ def query_image(dirs, img_file):
     print src.query(f)
 
 
+def db_info(dirs):
+    indx = imagesearch.Indexer(_db_path(dirs), None)
+    con = indx.con
+    print 'Num images indexed:%s' % con.execute('select count(filename) from imlist').fetchone()
+    print con.execute('select * from imlist').fetchone()
+
+
 def _db_path(dirs):
     return os.path.join(dirs['db'], 'tests.db')
 
@@ -134,3 +141,7 @@ if __name__ == '__main__':
             dirs = _get_dirs(base_dir)
             print 'Searching for image:%s' % image_file
             query_image(dirs, image_file)
+        if action == "DB_INFO":
+            base_dir = opts.get('--base') or opts.get('-b')
+            dirs = _get_dirs(base_dir)
+            db_info(dirs)
