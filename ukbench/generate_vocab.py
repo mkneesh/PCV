@@ -6,6 +6,7 @@ import pickle
 
 import PCV.localdescriptors.sift as sift
 import PCV.imagesearch.vocabulary as vocabulary
+import PCV.imagesearch.imagesearch as imagesearch
 
 
 def matching_files(in_dir, pattern="*.jpg"):
@@ -64,3 +65,12 @@ if __name__ == '__main__':
             out_dir = opts.get('--output') or opts.get('-o')
             print 'Generating vocab from:%s and storing in:%s' % (in_dir, out_dir)
             generate_vocab(in_dir, out_dir)
+        if action == "INIT":
+            out_dir = opts.get('--output') or opts.get('-o')
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            db = os.path.join(out_dir, 'tests.db')
+            print 'Creating tables:%s' % db
+            imagesearch.Indexer(db, None).create_tables()
+            print 'Done creating tables'
+
