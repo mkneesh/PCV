@@ -58,8 +58,7 @@ def generate_vocab(in_sift_dir, out_pickle_dir, subsampling=10):
 
 def index_files(dirs):
     print 'Loading files'
-    with open(os.path.join(dirs['voc'], 'vocabulary.pkl'), 'rb') as f:
-        voc = pickle.load(f)
+    voc = _load_voc(dirs)
     db = os.path.join(dirs['db'], 'tests.db')
     indx = imagesearch.Indexer(db, voc)
 
@@ -72,7 +71,29 @@ def index_files(dirs):
     indx.db_commit()
 
 
-def _get_dirs(root_dir):
+def query_image(dirs, img_file):
+    db = _db_path(dirs)
+    src = imagesearch.Searcher(db, _load_voc(dirs))
+    f = os.path.basename(img_file)
+    print 'Searching for:%s' % img_file
+    print src.query(f)
+
+
+def _db_path(dirs):
+    return os.path.join(dirs['db'], 'tests.db')
+
+
+def _voc_path(dirs):
+    return os.path.join(dirs['voc'], 'vocabulary.pkl')
+
+
+def _load_voc(dirs):
+    with open(_voc_path(dirs), 'rb') as f:
+        voc = pickle.load(f)
+    return voc
+
+
+def _get_dirs(in_dir):
     image_dir = os.path.join(in_dir, "images")
     sift_dir = os.path.join(in_dir, "sift")
     voc_dir = os.path.join(in_dir, "voc")
@@ -80,7 +101,7 @@ def _get_dirs(root_dir):
     return {'images': image_dir, 'sift': sift_dir, 'voc': voc_dir, 'db': db_dir}
 
 if __name__ == '__main__':
-    opts = dict(getopt.getopt(sys.argv[1:], "a:i:o:m:", ["action=", "input=", "output=", "max="])[0])
+    opts = dict(getopt.getopt(sys.argv[1:], "a:b:i:o:m:", ["action=", "base=", "input=", "output=", "max="])[0])
     if opts:
         action = opts.get('--action')
         if action == 'SIFT':
@@ -107,3 +128,9 @@ if __name__ == '__main__':
             dirs = _get_dirs(in_dir)
             print 'Creating index:%s' % in_dir
             index_files(dirs)
+        if action == "QUERY":
+            base_dir = opts.get('--base') or opts.get('-b')
+            image_file = opts.get('--input') or opts.get('-i')
+            dirs = _get_dirs(base_dir)
+            print 'Searching for image:%s' % image_file
+            query_image(dirs, image_file)
