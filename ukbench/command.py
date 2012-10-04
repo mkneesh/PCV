@@ -1,4 +1,5 @@
 import os
+import shutil
 import fnmatch
 import getopt
 import sys
@@ -24,19 +25,35 @@ def load_images(path, max_=1000):
             return images
 
 
+def _get_dirs(in_dir):
+    image_dir = os.path.join(in_dir, "images")
+    sift_dir = os.path.join(in_dir, "sift")
+    voc_dir = os.path.join(in_dir, "voc")
+    db_dir = os.path.join(in_dir, "db")
+    return {'images': image_dir, 'sift': sift_dir, 'voc': voc_dir, 'db': db_dir}
+
+
 def _to_sift_file(image_file):
     name_no_ext = os.path.splitext(image_file)[0]
     return ''.join([name_no_ext, '.sift'])
 
 
-def generate_sift(image_dir, sift_dir, image_pattern="*.jpg", max_=1000):
-    if not os.path.exists(sift_dir):
-        os.makedirs(sift_dir)
+def _db_path(dirs):
+    return os.path.join(dirs['db'], 'tests.db')
 
+
+def _voc_path(dirs):
+    return os.path.join(dirs['voc'], 'vocabulary.pkl')
+
+
+def generate_sift(image_dir, dirs, image_pattern="*.jpg", max_=1000, copy_images=True):
     for i, f in enumerate(matching_files(image_dir)):
-        o = os.path.join(sift_dir, _to_sift_file(os.path.basename(f)))
+        o = os.path.join(dirs['sift'], _to_sift_file(os.path.basename(f)))
         print '%s of %s) Processing:%s' % (i, max_, f)
         sift.process_image(f, o)
+        if copy_images:
+            img_dstn = os.path.join(dirs['images'], os.path.basename(f))
+            shutil.copyfile(f, img_dstn)
         if max_ and i >= max_:
             return
 
@@ -59,7 +76,7 @@ def generate_vocab(in_sift_dir, out_pickle_dir, subsampling=10):
 def index_files(dirs):
     print 'Loading files'
     voc = _load_voc(dirs)
-    db = os.path.join(dirs['db'], 'tests.db')
+    db = _db_path(dirs)
     indx = imagesearch.Indexer(db, voc)
 
     for img_file in matching_files(dirs['images']):
@@ -86,62 +103,42 @@ def db_info(dirs):
     print con.execute('select * from imlist').fetchone()
 
 
-def _db_path(dirs):
-    return os.path.join(dirs['db'], 'tests.db')
-
-
-def _voc_path(dirs):
-    return os.path.join(dirs['voc'], 'vocabulary.pkl')
-
-
 def _load_voc(dirs):
     with open(_voc_path(dirs), 'rb') as f:
         voc = pickle.load(f)
     return voc
 
-
-def _get_dirs(in_dir):
-    image_dir = os.path.join(in_dir, "images")
-    sift_dir = os.path.join(in_dir, "sift")
-    voc_dir = os.path.join(in_dir, "voc")
-    db_dir = os.path.join(in_dir, "db")
-    return {'images': image_dir, 'sift': sift_dir, 'voc': voc_dir, 'db': db_dir}
-
 if __name__ == '__main__':
     opts = dict(getopt.getopt(sys.argv[1:], "a:b:i:o:m:", ["action=", "base=", "input=", "output=", "max="])[0])
     if opts:
         action = opts.get('--action')
-        if action == 'SIFT':
-            in_dir = opts.get('--input') or opts.get('-i')
-            out_dir = opts.get('--output') or opts.get('-o')
-            max_ = opts.get('--max') or opts.get('-m')
-            print 'Max:%s Generating sift-features from:%s to:%s' % (max_, in_dir, out_dir)
-            generate_sift(in_dir, out_dir, max_=int(max_))
-        if action == 'VOC':
-            in_dir = opts.get('--input') or opts.get('-i')
-            out_dir = opts.get('--output') or opts.get('-o')
-            print 'Generating vocab from:%s and storing in:%s' % (in_dir, out_dir)
-            generate_vocab(in_dir, out_dir)
+        base_dir = opts.get('--base') or opts.get('-b')
+
+        dirs = _get_dirs(base_dir)
+        for d in dirs.values():
+            if not os.path.exists(d):
+                os.makedirs(d)
+
         if action == "INIT":
-            out_dir = opts.get('--output') or opts.get('-o')
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            db = os.path.join(out_dir, 'tests.db')
+            db = _db_path(dirs)
             print 'Creating tables:%s' % db
             imagesearch.Indexer(db, None).create_tables()
             print 'Done creating tables'
-        if action == "INDEX":
+        if action == 'SIFT':
             in_dir = opts.get('--input') or opts.get('-i')
-            dirs = _get_dirs(in_dir)
-            print 'Creating index:%s' % in_dir
+            max_ = opts.get('--max') or opts.get('-m')
+            print 'Max:%s Generating sift-features from:%s to:%s' % (max_, in_dir, dirs['sift'])
+            generate_sift(in_dir, dirs, max_=int(max_), copy_images=True)
+        if action == 'VOC':
+            print 'Generating vocab from:%s and storing in:%s' % (dirs['sift'], dirs['voc'])
+            generate_vocab(dirs['sift'], dirs['voc'])
+        if action == "INDEX":
+            print 'Creating index:%s' % dirs['db']
             index_files(dirs)
         if action == "QUERY":
-            base_dir = opts.get('--base') or opts.get('-b')
             image_file = opts.get('--input') or opts.get('-i')
             dirs = _get_dirs(base_dir)
             print 'Searching for image:%s' % image_file
             query_image(dirs, image_file)
         if action == "DB_INFO":
-            base_dir = opts.get('--base') or opts.get('-b')
-            dirs = _get_dirs(base_dir)
             db_info(dirs)
